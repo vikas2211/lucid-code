@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.auth.exceptions import DefaultCredentialsError
 
 global resource
 creds = None
@@ -49,7 +50,11 @@ def getFileList(nextPageToken=None):
 	global fetchfile_iteration
 	fetchfile_iteration += 1
 	logging.info("Running getFileList to get list of files -- Iteration : " + str(fetchfile_iteration))
-	result = resource.list(pageToken=nextPageToken, fields="nextPageToken, files(id, name, mimeType)").execute()
+	try:
+		result = resource.list(pageToken=nextPageToken, fields="nextPageToken, files(id, name, mimeType)").execute()
+	except Exception as error:
+		logging.error("Listing of Files failed with error : " + str(error))
+		sys.exit(1)
 	file_list = result.get('files')
 	for file in file_list:
 		if "folder" not in file['mimeType']:
@@ -78,7 +83,17 @@ def downloadFiles(FileId,FileName):
 		sys.exit(1)
 
 if __name__ == "__main__":
-	generateToken()
+	try:
+		generateToken()
+	except TimeoutError as err:
+		print("Error Happened because of timeout")
+		sys.exit(1)
+	except DefaultCredentialsError as err:
+		print("Error happened because of Access Denied")
+		sys.exit(1)
+	except Exception as err:
+		("Failed to generate auth token")
+		sys.exit(1)
 	service = build('drive', 'v3', credentials=creds)
 	resource = service.files()
 	result_dict = getFileList()
